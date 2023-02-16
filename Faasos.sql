@@ -222,9 +222,89 @@ B. Driver and Customer Experience
 Select* from driver_order
 Select * from customer_orders
 
-Select avg(DIFF), driver_id, order_id from 
-	(Select * ,datediff(minute,a.order_date,b.pickup_time) DIFF 
-	from customer_orders a join driver_order b
-	on a.order_id=b.order_id
-	where b.pickup_time IS NOT NULL)
+Select driver_id, sum(diff)/count(roll_id) as Avg_pickup_tym_per_driver from
+(Select * from 
+(Select *, row_number() over(partition by order_id order by DIFF) rnk from
+(Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
+a.order_date,b.driver_id,b.pickup_time,b.distance,b.duration,b.cancellation ,datediff(minute,a.order_date,b.pickup_time) DIFF 
+from customer_orders a join driver_order b
+on a.order_id=b.order_id
+where b.pickup_time IS NOT NULL)c)d where rnk=1)m
+group by driver_id
+
+
+
+Is there any relationship beween the number of rolls and how  long the order takes to preapare?
+
+Select order_id, count(roll_id) as cnt , sum(DIFF)/count(roll_id) as Tym_Diff_per_order from
+(Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
+a.order_date,b.driver_id,b.pickup_time,b.distance,b.duration,b.cancellation,datediff(minute,a.order_date,b.pickup_time) DIFF
+from customer_orders a join driver_order b
+on a.order_id=b.order_id 
+where b.pickup_time IS NOT NULL) as c 
+group by order_id
+
+
+What was the avg distance travelled for each customer?
+
+select * from driver_order
+select * from customer_orders
+
+select avg(b.distance), a.customer_id
+from driver_order b join customer_orders a
+on a.order_id=b.order_id
+where b.distance is not null
+group by a.customer_id
+
+
+Select customer_id, sum(distance)/count(order_id) as avg_distance_of_customer from
+(Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
+a.order_date,b.driver_id,b.pickup_time,
+cast(trim(replace(lower(b.distance),'km',''))as decimal) distance,
+b.duration,b.cancellation,datediff(minute,a.order_date,b.pickup_time) DIFF
+from customer_orders a join driver_order b
+on a.order_id=b.order_id 
+where b.pickup_time IS NOT NULL) c
+group by customer_id
+
+
+What was the difference between the longest and the shortest delivery times for all orders?
+
+Select* from driver_order
+
+Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
+a.order_date,b.driver_id,b.pickup_time,
+cast(trim(replace(lower(b.distance),'km',''))as decimal) distance,
+replace(lower(b.duration),'minutes','') duration,
+b.cancellation,datediff(minute,a.order_date,b.pickup_time) DIFF
+from customer_orders a join driver_order b
+on a.order_id=b.order_id 
+where b.pickup_time IS NOT NULL
+
+Select duration, charindex('m',duration) from driver_order
+
+Select max(duration)-min(duration) from
+(Select cast(case when duration Like '%min%' then left(duration,(charindex('m',duration)-1)) else duration 
+end as decimal)as duration from driver_order where duration is not null)a
+
+What was the average speed of each driver for each delivery and do you notice any trend for these values?
+
+Select driver_id, order_id, sum(distance)/sum(duration) as speed_km_per_min from
+(Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
+a.order_date,b.driver_id,b.pickup_time,
+cast(trim(replace(lower(b.distance),'km',''))as decimal) distance,
+cast(case when b.duration Like '%min%' then left(b.duration,(charindex('m',b.duration)-1)) else b.duration 
+end as decimal)as duration,
+b.cancellation,datediff(minute,a.order_date,b.pickup_time) DIFF
+from customer_orders a join driver_order b
+on a.order_id=b.order_id 
+where b.pickup_time IS NOT NULL)c
 group by driver_id, order_id
+order by order_id
+
+What is the successful delivery percentage for each customer?
+
+Select driver_id, (s*1.0/t)*100 from
+(Select driver_id, sum(can_per) s ,count(*) t from
+(Select driver_id, case when lower(cancellation) Like '%cancel%' then 0 else 1 end as can_per from driver_order)b
+group by driver_id)c
