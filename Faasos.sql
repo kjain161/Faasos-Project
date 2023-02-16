@@ -94,7 +94,7 @@ from driver_order
 where duration is not NULL
 group by driver_id
 
-How many of each type of roll was delivered?
+3 How many of each type of roll was delivered?
 
 Select a.roll_id , count(*) from
 customer_orders a join driver_order b
@@ -106,14 +106,14 @@ Select * from driver_order where cancellation IS NOT NULL
 
 
 
-How many Veg and Non Veg rolls were ordered by each customer?
+4 How many Veg and Non Veg rolls were ordered by each customer?
 
 select a.customer_id,a.roll_id,b.roll_name, count(*) as no_of_rolls
 from customer_orders a join rolls b 
 on a.roll_id=b.roll_id
 group by  a.roll_id, b.roll_name,a.customer_id
 
-How many maximum number of rolls were delivered in a single order?
+5 How many maximum number of rolls were delivered in a single order?
 
 select TOP 1 a.order_id, count(a.roll_id) cnt
 from customer_orders a join driver_order b
@@ -122,9 +122,9 @@ where b.cancellation not like '%Cancellation%' or b.cancellation is Null
 group by a.order_id
 order by cnt DESC
 
-For each customer, how many delivered rolls had at least 1 change and how many had no change?
+6 For each customer, how many delivered rolls had at least 1 change and how many had no change?
 
-select b.customer_id, count(*)
+/*select b.customer_id, count(*)
 from ( select customer_id, count(*) cnt1
 from customer_orders
 where not_include_items is NULL and extra_items_included is NULL
@@ -134,13 +134,9 @@ group by b.customer_id
 
 select * from customer_orders
 
-
-
-
-
 Select *, case when not_include_items='0' and extra_items_included='0' then 'no change' else 'change' end as chg_no_chg from
 (Select tco.customer_id , count(*) from temp_customer_orders tco  where tco.order_id in (
-Select tdo.order_id from temp_driver_order tdo where tdo.cancellation ='1') group by tco.customer_id)
+Select tdo.order_id from temp_driver_order tdo where tdo.cancellation ='1') group by tco.customer_id)*/
 
 
 With temp_customer_orders(order_id,customer_id,roll_id,not_include_items,extra_items_included,order_date) as
@@ -165,15 +161,15 @@ select customer_id, chg_no_chg,count(*) from
 from temp_customer_orders where order_id in (select order_id from temp_driver_order where cancellation ='1')) a 
 group by customer_id, chg_no_chg
 
-select customer_id, chg_no_chg, count(no_of_orders) from (select *, case when c.not_include_items='0' and c.extra_items_included ='0' then 'no change' else 'change' end as chg_no_chg from (
+/*select customer_id, chg_no_chg, count(no_of_orders) from (select *, case when c.not_include_items='0' and c.extra_items_included ='0' then 'no change' else 'change' end as chg_no_chg from (
 select a.customer_id, count(*) as no_of_orders
 from temp_customer_orders a join temp_driver_order b
 on a.order_id=b.order_id
 where b.cancellation = '1'
-group by a.customer_id) q1 join temp_customer_orders c on q1.customer_id=c.customer_id ) group by customer_id, chg_no_chg 
+group by a.customer_id) q1 join temp_customer_orders c on q1.customer_id=c.customer_id ) group by customer_id, chg_no_chg */
 
 
-How many rolls were delivered that had both exclusions and extras?
+7 How many rolls were delivered that had both exclusions and extras?
 
 With temp_customer_orders(order_id,customer_id,roll_id,not_include_items,extra_items_included,order_date) as
 (	
@@ -196,14 +192,14 @@ Select order_id, count(*) from temp_customer_orders where order_id  in
 group by order_id
 
 
-what was the total number of rolls ordered for each hour of the day?
+8 what was the total number of rolls ordered for each hour of the day?
 
 
 Select count(*), hour_bracket from 
 (Select *, concat(cast(datepart(hour,order_date) as varchar),'-', cast(datepart(hour, order_date)+1 as varchar)) as hour_bracket from customer_orders)q1
 group by hour_bracket
 
-What was the number of orders for each day of the week?
+9 What was the number of orders for each day of the week?
 
 select count(distinct order_id), day_day  from (sELECT* , Datepart(WEEKDAY,order_date) day_day FROM CUSTOMER_ORDERS)a
 group by day_day
@@ -234,7 +230,7 @@ group by driver_id
 
 
 
-Is there any relationship beween the number of rolls and how  long the order takes to preapare?
+2. Is there any relationship beween the number of rolls and how  long the order takes to preapare?
 
 Select order_id, count(roll_id) as cnt , sum(DIFF)/count(roll_id) as Tym_Diff_per_order from
 (Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
@@ -245,16 +241,16 @@ where b.pickup_time IS NOT NULL) as c
 group by order_id
 
 
-What was the avg distance travelled for each customer?
+3. What was the avg distance travelled for each customer?
 
-select * from driver_order
+/*select * from driver_order
 select * from customer_orders
 
 select avg(b.distance), a.customer_id
 from driver_order b join customer_orders a
 on a.order_id=b.order_id
 where b.distance is not null
-group by a.customer_id
+group by a.customer_id*/
 
 
 Select customer_id, sum(distance)/count(order_id) as avg_distance_of_customer from
@@ -268,26 +264,17 @@ where b.pickup_time IS NOT NULL) c
 group by customer_id
 
 
-What was the difference between the longest and the shortest delivery times for all orders?
+4 What was the difference between the longest and the shortest delivery times for all orders?
 
-Select* from driver_order
+/*Select* from driver_order
 
-Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
-a.order_date,b.driver_id,b.pickup_time,
-cast(trim(replace(lower(b.distance),'km',''))as decimal) distance,
-replace(lower(b.duration),'minutes','') duration,
-b.cancellation,datediff(minute,a.order_date,b.pickup_time) DIFF
-from customer_orders a join driver_order b
-on a.order_id=b.order_id 
-where b.pickup_time IS NOT NULL
-
-Select duration, charindex('m',duration) from driver_order
+Select duration, charindex('m',duration) from driver_order*/
 
 Select max(duration)-min(duration) from
 (Select cast(case when duration Like '%min%' then left(duration,(charindex('m',duration)-1)) else duration 
 end as decimal)as duration from driver_order where duration is not null)a
 
-What was the average speed of each driver for each delivery and do you notice any trend for these values?
+5 What was the average speed of each driver for each delivery and do you notice any trend for these values?
 
 Select driver_id, order_id, sum(distance)/sum(duration) as speed_km_per_min from
 (Select a.order_id,a.customer_id, a.roll_id,a.not_include_items, a.extra_items_included,
@@ -302,7 +289,7 @@ where b.pickup_time IS NOT NULL)c
 group by driver_id, order_id
 order by order_id
 
-What is the successful delivery percentage for each customer?
+6 What is the successful delivery percentage for each customer?
 
 Select driver_id, (s*1.0/t)*100 from
 (Select driver_id, sum(can_per) s ,count(*) t from
