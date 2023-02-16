@@ -48,10 +48,10 @@ INSERT INTO driver_order(order_id,driver_id,pickup_time,distance,duration,cancel
 (4,2,'01-04-2021 13:53:03','23.4','40','NaN'),
 (5,3,'01-08-2021 21:10:57','10','15','NaN'),
 (6,3,null,null,null,'Cancellation'),
-(7,2,'01-08-2020 21:30:45','25km','25mins',null),
-(8,2,'01-10-2020 00:15:02','23.4 km','15 minute',null),
+(7,2,'01-08-2021 21:30:45','25km','25mins',null),
+(8,2,'01-10-2021 00:15:02','23.4 km','15 minute',null),
 (9,2,null,null,null,'Customer Cancellation'),
-(10,1,'01-11-2020 18:50:20','10km','10minutes',null);
+(10,1,'01-11-2021 18:50:20','10km','10minutes',null);
 
 
 drop table if exists customer_orders;
@@ -137,18 +137,11 @@ select * from customer_orders
 
 
 
-,
 
-/*Select * from temp_customer_orders
-Select * from driver_order
+Select *, case when not_include_items='0' and extra_items_included='0' then 'no change' else 'change' end as chg_no_chg from
+(Select tco.customer_id , count(*) from temp_customer_orders tco  where tco.order_id in (
+Select tdo.order_id from temp_driver_order tdo where tdo.cancellation ='1') group by tco.customer_id)
 
-
-
-
-Select customer_id, count(*)
-from temp_customer_orders
-where not_include_items!='0' or extra_items_included!='0'
-group by customer_id*/
 
 With temp_customer_orders(order_id,customer_id,roll_id,not_include_items,extra_items_included,order_date) as
 (	
@@ -166,8 +159,72 @@ temp_driver_order(order_id,driver_id ,pickup_time,distance,duration,cancellation
 	from driver_order
 )
 
-Select *, case when not_include_items='0' and extra_items_included='0' then 'no change' else 'change' end as chg_no_chg from
-(Select tco.customer_id , count(*) from temp_customer_orders tco  where tco.order_id in (
-Select tdo.order_id from temp_driver_order tdo where tdo.cancellation ='1') group by tco.customer_id)
+
+select customer_id, chg_no_chg,count(*) from 
+(select * ,case when not_include_items='0' and extra_items_included ='0' then 'no change' else 'change' end as chg_no_chg 
+from temp_customer_orders where order_id in (select order_id from temp_driver_order where cancellation ='1')) a 
+group by customer_id, chg_no_chg
+
+select customer_id, chg_no_chg, count(no_of_orders) from (select *, case when c.not_include_items='0' and c.extra_items_included ='0' then 'no change' else 'change' end as chg_no_chg from (
+select a.customer_id, count(*) as no_of_orders
+from temp_customer_orders a join temp_driver_order b
+on a.order_id=b.order_id
+where b.cancellation = '1'
+group by a.customer_id) q1 join temp_customer_orders c on q1.customer_id=c.customer_id ) group by customer_id, chg_no_chg 
 
 
+How many rolls were delivered that had both exclusions and extras?
+
+With temp_customer_orders(order_id,customer_id,roll_id,not_include_items,extra_items_included,order_date) as
+(	
+	Select order_id,customer_id,roll_id, 
+	case when not_include_items= ' ' or not_include_items is NULL then '0' else not_include_items end as new_not_include_items,
+	case when extra_items_included is Null or extra_items_included=' ' or extra_items_included ='NaN' then '0' else extra_items_included end as new_extra_items_included,
+	order_date from customer_orders
+)
+
+,
+temp_driver_order(order_id,driver_id ,pickup_time,distance,duration,cancellation) as
+(
+	Select order_id,driver_id,pickup_time,distance,duration,	
+	case when cancellation in ('Cancellation', 'Customer Cancellation') then '0' else '1'  end as new_cancellation
+	from driver_order
+)
+
+Select order_id, count(*) from temp_customer_orders where order_id  in 
+(Select order_id from temp_driver_order where cancellation!='0') and not_include_items!='0' and extra_items_included!='0'
+group by order_id
+
+
+what was the total number of rolls ordered for each hour of the day?
+
+
+Select count(*), hour_bracket from 
+(Select *, concat(cast(datepart(hour,order_date) as varchar),'-', cast(datepart(hour, order_date)+1 as varchar)) as hour_bracket from customer_orders)q1
+group by hour_bracket
+
+What was the number of orders for each day of the week?
+
+select count(distinct order_id), day_day  from (sELECT* , Datepart(WEEKDAY,order_date) day_day FROM CUSTOMER_ORDERS)a
+group by day_day
+
+or
+
+
+select day_day ,count(distinct order_id) from
+(sELECT* , Datename(dw,order_date) day_day FROM CUSTOMER_ORDERS)a
+group by day_day
+
+B. Driver and Customer Experience
+
+1. what was the average time in minutes it took for each driver to arrive at the faasos HQ TO PICK UP THE ORDER?
+
+Select* from driver_order
+Select * from customer_orders
+
+Select avg(DIFF), driver_id, order_id from 
+	(Select * ,datediff(minute,a.order_date,b.pickup_time) DIFF 
+	from customer_orders a join driver_order b
+	on a.order_id=b.order_id
+	where b.pickup_time IS NOT NULL)
+group by driver_id, order_id
